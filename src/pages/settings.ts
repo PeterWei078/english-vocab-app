@@ -11,6 +11,14 @@ import { lookupWord } from '../services/ai';
 import { showToast } from '../components/toast';
 import { applyTheme } from '../main';
 
+function buildBookmarklet(): string {
+  const appUrl =
+    window.location.origin +
+    window.location.pathname.replace(/\/$/, '');
+  const js = `(function(){var s=(window.getSelection()||document.getSelection()).toString().trim();if(!s){alert('請先選取單字或片語');return;}window.open('${appUrl}/?q='+encodeURIComponent(s),'_blank');})();`;
+  return `javascript:${js}`;
+}
+
 export function renderSettingsPage(container: HTMLElement): void {
   const settings = loadSettings();
   const vocab = loadVocab();
@@ -20,6 +28,8 @@ export function renderSettingsPage(container: HTMLElement): void {
       ).toLocaleDateString('zh-TW')
     : '—';
 
+  const bookmarkletHref = buildBookmarklet();
+
   container.innerHTML = `
     <div class="page">
       <div class="page-header">
@@ -27,6 +37,37 @@ export function renderSettingsPage(container: HTMLElement): void {
       </div>
 
       <div class="settings-sections">
+
+        <!-- Bookmarklet -->
+        <div class="settings-section">
+          <div class="settings-section-title">網頁選字查詢（Bookmarklet）</div>
+          <p style="font-size:14px;color:var(--text-secondary);margin-bottom:16px;line-height:1.7">
+            將下方按鈕拖曳到瀏覽器的書籤列。之後在任何網頁上選取英文單字或片語，點一下書籤，即可自動帶入查詢。
+          </p>
+          <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+            <a
+              id="bookmarklet-link"
+              href="${escHtml(bookmarkletHref)}"
+              class="btn btn-primary"
+              style="cursor:grab;user-select:none"
+              draggable="true"
+              onclick="event.preventDefault();alert('請用拖曳的方式將此按鈕放到書籤列，不要直接點擊。')"
+            >
+              📖 查詢單字
+            </a>
+            <div style="font-size:13px;color:var(--text-muted);line-height:1.6">
+              ← 拖曳此按鈕到瀏覽器書籤列<br>
+              選文字後點書籤即可查詢
+            </div>
+          </div>
+          <div style="margin-top:14px;background:var(--bg-secondary);border-radius:var(--radius);padding:12px;font-size:13px;color:var(--text-secondary)">
+            <strong>使用步驟：</strong><br>
+            1. 把上方「📖 查詢單字」按鈕拖曳到書籤列<br>
+            2. 在任意網頁上用滑鼠選取英文單字或片語<br>
+            3. 點一下書籤列的「📖 查詢單字」<br>
+            4. 單字庫 App 會在新分頁開啟並自動查詢
+          </div>
+        </div>
 
         <!-- API Settings -->
         <div class="settings-section">

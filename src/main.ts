@@ -40,7 +40,7 @@ function initTheme(): void {
 type PageId = 'lookup' | 'vocabulary' | 'quiz' | 'settings';
 
 const RENDERERS: Record<PageId, (c: HTMLElement) => void> = {
-  lookup:     renderLookupPage,
+  lookup:     (c) => renderLookupPage(c),
   vocabulary: renderVocabularyPage,
   quiz:       renderQuizPage,
   settings:   renderSettingsPage,
@@ -51,14 +51,17 @@ function getPageId(hash: string): PageId {
   return id in RENDERERS ? id : 'lookup';
 }
 
-function navigate(hash: string): void {
+function navigate(hash: string, initialWord?: string): void {
   const pageId = getPageId(hash);
   const container = document.getElementById('page-container')!;
 
-  RENDERERS[pageId](container);
+  if (pageId === 'lookup' && initialWord) {
+    renderLookupPage(container, initialWord);
+  } else {
+    RENDERERS[pageId](container);
+  }
   updateNavTabs(pageId);
 
-  // Scroll to top
   window.scrollTo({ top: 0, behavior: 'instant' });
 }
 
@@ -87,8 +90,15 @@ function init(): void {
   initTheme();
   initThemeToggle();
 
+  // Handle ?q= from bookmarklet
+  const params = new URLSearchParams(location.search);
+  const bookmarkletWord = params.get('q')?.trim();
+  if (bookmarkletWord) {
+    history.replaceState({}, '', location.pathname + (location.hash || '#lookup'));
+  }
+
   window.addEventListener('hashchange', () => navigate(location.hash));
-  navigate(location.hash || '#lookup');
+  navigate(location.hash || '#lookup', bookmarkletWord);
 }
 
 init();

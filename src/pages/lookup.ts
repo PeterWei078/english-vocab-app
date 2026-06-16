@@ -15,7 +15,7 @@ let throttleTimer: ReturnType<typeof setInterval> | null = null;
 let currentResult: GeminiLookupResult | null = null;
 let selectedMastery: MasteryLevel = 'unfamiliar';
 
-export function renderLookupPage(container: HTMLElement): void {
+export function renderLookupPage(container: HTMLElement, initialWord?: string): void {
   container.innerHTML = `
     <div class="page">
       <div class="lookup-layout">
@@ -59,6 +59,12 @@ export function renderLookupPage(container: HTMLElement): void {
   `;
 
   bindLookupEvents(container);
+
+  if (initialWord) {
+    const input = container.querySelector<HTMLInputElement>('#lookup-input');
+    if (input) input.value = initialWord;
+    performLookup(initialWord, container);
+  }
 }
 
 function renderHistoryPanel(): string {
