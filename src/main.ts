@@ -1,5 +1,6 @@
 import { loadSettings, saveSettings } from './services/storage';
 import { renderLookupPage } from './pages/lookup';
+import { renderAnalyzePage } from './pages/analyze';
 import { renderVocabularyPage } from './pages/vocabulary';
 import { renderQuizPage } from './pages/quiz';
 import { renderSettingsPage } from './pages/settings';
@@ -37,10 +38,11 @@ function initTheme(): void {
 }
 
 // ── Router ────────────────────────────────────────────────
-type PageId = 'lookup' | 'vocabulary' | 'quiz' | 'settings';
+type PageId = 'lookup' | 'analyze' | 'vocabulary' | 'quiz' | 'settings';
 
 const RENDERERS: Record<PageId, (c: HTMLElement) => void> = {
   lookup:     (c) => renderLookupPage(c),
+  analyze:    renderAnalyzePage,
   vocabulary: renderVocabularyPage,
   quiz:       renderQuizPage,
   settings:   renderSettingsPage,

@@ -125,6 +125,46 @@ ${wordList}
   return JSON.parse(clean) as QuizQuestion[];
 }
 
+// ── Article Analysis ─────────────────────────────────────
+export async function analyzeArticle(
+  apiKey: string,
+  article: string
+): Promise<GeminiLookupResult[]> {
+  const prompt = `你是英語詞彙分析師。請從以下英文文章中，找出 10～15 個 B2～C1 程度、對學習者最有價值的單字或片語。
+
+規則：
+- 排除 A1～B1 基礎詞彙（如 go、make、important 等常見簡單字）
+- 優先選擇：動詞片語、學術詞彙、搭配詞、慣用語、進階形容詞／副詞
+- 同一個詞出現多次只列一次
+- 排除專有名詞（人名、地名、品牌等）
+- 例句請直接從文章中引用或略微改寫，保留原文語境
+
+文章：
+"""
+${article}
+"""
+
+嚴格以 JSON 陣列格式回傳，不要加任何其他文字：
+[
+  {
+    "word": "單字或片語",
+    "translation": "繁體中文翻譯（簡潔）",
+    "partOfSpeech": "noun|verb|adjective|adverb|phrase|idiom|other",
+    "exampleSentence": "從文章引用或改寫的英文例句",
+    "exampleTranslation": "例句繁體中文翻譯",
+    "relatedInfo": [
+      { "label": "類型說明", "content": "內容" }
+    ],
+    "tags": ["主題標籤"]
+  }
+]
+relatedInfo 每筆最多 2 項，選最實用的（搭配詞、詞形變化、近義詞等）。`;
+
+  const text = await callGemini(apiKey, prompt);
+  const clean = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+  return JSON.parse(clean) as GeminiLookupResult[];
+}
+
 // ── Custom Error ──────────────────────────────────────────
 export class ThrottleError extends Error {
   constructor(public remainingMs: number) {

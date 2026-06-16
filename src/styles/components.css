@@ -726,6 +726,100 @@
   background: var(--danger-light);
 }
 
+/* ── Article Analyze ── */
+.analyze-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding: 14px 16px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  position: sticky;
+  top: calc(var(--nav-height) + 8px);
+  z-index: 10;
+  box-shadow: var(--shadow-md);
+}
+
+.analyze-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 12px;
+}
+
+.analyze-card {
+  display: flex;
+  gap: 12px;
+  background: var(--bg-card);
+  border: 2px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
+  opacity: 0.6;
+}
+
+.analyze-card.is-checked {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent), var(--shadow-sm);
+  opacity: 1;
+}
+
+.analyze-card.already-saved {
+  opacity: 0.45;
+  border-color: var(--border);
+}
+
+.analyze-card-check {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  padding-top: 2px;
+}
+
+.analyze-checkbox-wrap {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+}
+
+.analyze-checkbox {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.analyze-checkbox:disabled {
+  cursor: not-allowed;
+}
+
+.already-saved-badge {
+  font-size: 11px;
+  color: var(--success);
+  white-space: nowrap;
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  letter-spacing: 0.05em;
+}
+
+.analyze-card-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.analyze-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
 /* ── Divider ── */
 .divider {
   height: 1px;
