@@ -158,3 +158,33 @@ export function importVocabJson(
 export function clearAllData(): void {
   Object.values(KEYS).forEach((k) => localStorage.removeItem(k));
 }
+
+// ── Storage Usage ─────────────────────────────────────────
+export interface StorageBreakdown {
+  key: string;
+  label: string;
+  bytes: number;
+}
+
+export interface StorageUsage {
+  totalBytes: number;
+  usedBytes: number;
+  breakdown: StorageBreakdown[];
+}
+
+const STORAGE_TOTAL_BYTES = 5 * 1024 * 1024; // 5MB standard browser limit
+
+export function getStorageUsage(): StorageUsage {
+  const breakdown: StorageBreakdown[] = [
+    { key: KEYS.VOCAB,    label: '單字庫' },
+    { key: KEYS.QUIZ,     label: '測驗資料' },
+    { key: KEYS.SETTINGS, label: '設定' },
+    { key: KEYS.HISTORY,  label: '查詢歷史' },
+  ].map(({ key, label }) => {
+    const val = localStorage.getItem(key) ?? '';
+    return { key, label, bytes: val.length * 2 }; // UTF-16: 2 bytes per char
+  });
+
+  const usedBytes = breakdown.reduce((sum, b) => sum + b.bytes, 0);
+  return { totalBytes: STORAGE_TOTAL_BYTES, usedBytes, breakdown };
+}

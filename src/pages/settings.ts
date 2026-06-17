@@ -6,6 +6,7 @@ import {
   exportVocabJson,
   importVocabJson,
   clearAllData,
+  getStorageUsage,
 } from '../services/storage';
 import { lookupWord } from '../services/ai';
 import { showToast } from '../components/toast';
@@ -150,6 +151,9 @@ export function renderSettingsPage(container: HTMLElement): void {
             <button id="clear-btn" class="btn btn-danger btn-sm">🗑️ 清除</button>
           </div>
         </div>
+
+        <!-- Storage Status -->
+        ${renderStorageSection()}
 
         <!-- Stats -->
         <div class="settings-section">
@@ -322,6 +326,80 @@ function showConfirmDialog(
   backdrop.addEventListener('click', (e) => {
     if (e.target === backdrop) backdrop.remove();
   });
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+}
+
+function renderStorageSection(): string {
+  const { totalBytes, usedBytes, breakdown } = getStorageUsage();
+  const pct = (usedBytes / totalBytes) * 100;
+
+  const barColor =
+    pct < 50 ? 'var(--success)' :
+    pct < 80 ? 'var(--warning)' :
+               'var(--danger)';
+
+  const statusLabel =
+    pct < 50 ? '✅ 空間充裕' :
+    pct < 80 ? '⚠️ 使用偏高' :
+               '🔴 空間不足';
+
+  // Estimate remaining words: average 900 bytes per VocabularyItem
+  const AVG_ITEM_BYTES = 900;
+  const remainingBytes = totalBytes - usedBytes;
+  const estRemainingWords = Math.floor(remainingBytes / AVG_ITEM_BYTES);
+
+  const breakdownRows = breakdown
+    .filter((b) => b.bytes > 0)
+    .map(
+      (b) => `
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0">
+        <span style="font-size:13px;color:var(--text-secondary)">${b.label}</span>
+        <span style="font-size:13px;color:var(--text-muted);font-variant-numeric:tabular-nums">${formatBytes(b.bytes)}</span>
+      </div>`
+    )
+    .join('');
+
+  return `
+    <div class="settings-section">
+      <div class="settings-section-title">儲存空間狀態</div>
+
+      <!-- Usage bar -->
+      <div style="margin-bottom:16px">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px">
+          <span style="font-size:15px;font-weight:600;color:var(--text-primary)">
+            ${formatBytes(usedBytes)}
+            <span style="font-size:13px;font-weight:400;color:var(--text-muted)"> / ${formatBytes(totalBytes)}</span>
+          </span>
+          <span style="font-size:13px;font-weight:500;color:${barColor}">${statusLabel}</span>
+        </div>
+        <div style="height:10px;background:var(--border);border-radius:var(--radius-full);overflow:hidden">
+          <div style="height:100%;width:${pct.toFixed(2)}%;background:${barColor};border-radius:var(--radius-full);transition:width 0.4s ease"></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;margin-top:5px">
+          <span style="font-size:12px;color:var(--text-muted)">${pct.toFixed(1)}% 已使用</span>
+          <span style="font-size:12px;color:var(--text-muted)">預估尚可存約 ${estRemainingWords.toLocaleString()} 個單字</span>
+        </div>
+      </div>
+
+      <!-- Breakdown -->
+      ${breakdownRows ? `
+      <div style="border-top:1px solid var(--border);padding-top:12px">
+        <div style="font-size:12px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">細項明細</div>
+        ${breakdownRows}
+      </div>` : ''}
+
+      <!-- Info note -->
+      <div style="margin-top:12px;padding:10px 12px;background:var(--bg-secondary);border-radius:var(--radius);font-size:12px;color:var(--text-muted);line-height:1.6">
+        瀏覽器 LocalStorage 上限為 <strong>5 MB</strong>（各瀏覽器標準值），
+        資料僅存在此裝置。建議定期使用「匯出單字庫」功能備份。
+      </div>
+    </div>
+  `;
 }
 
 function formatDate(): string {
