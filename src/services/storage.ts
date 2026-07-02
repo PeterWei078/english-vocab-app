@@ -61,6 +61,10 @@ export function wordExists(word: string): boolean {
   );
 }
 
+export function clearAllTags(): void {
+  saveVocab(loadVocab().map((v) => ({ ...v, tags: [] })));
+}
+
 // ── Quiz ──────────────────────────────────────────────────
 export function loadQuizData(): QuizData | null {
   try {

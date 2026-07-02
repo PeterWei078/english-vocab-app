@@ -60,11 +60,9 @@ export async function lookupWord(
   "exampleTranslation": "例句的繁體中文翻譯",
   "relatedInfo": [
     { "label": "類型說明", "content": "內容" }
-  ],
-  "tags": ["主題標籤1", "主題標籤2"]
+  ]
 }
-relatedInfo 最多提供 3 項，選最實用的（詞形變化、常見搭配詞、片語動詞、固定表達等）。
-tags 選 1–3 個英文主題標籤（如 business、academic、daily、travel、technology、medical、formal 等）。`;
+relatedInfo 最多提供 3 項，選最實用的（詞形變化、常見搭配詞、片語動詞、固定表達等）。`;
 
   const text = await callGemini(apiKey, prompt);
   const clean = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
@@ -154,8 +152,7 @@ ${article}
     "exampleTranslation": "例句繁體中文翻譯",
     "relatedInfo": [
       { "label": "類型說明", "content": "內容" }
-    ],
-    "tags": ["主題標籤"]
+    ]
   }
 ]
 relatedInfo 每筆最多 2 項，選最實用的（搭配詞、詞形變化、近義詞等）。`;

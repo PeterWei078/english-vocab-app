@@ -191,10 +191,6 @@ function renderCards(output: HTMLElement): void {
       )
       .join('');
 
-    const tagsHtml = item.result.tags
-      .map((t) => `<span class="tag">${escHtml(t)}</span>`)
-      .join('');
-
     card.innerHTML = `
       <div class="analyze-card-check">
         <label class="analyze-checkbox-wrap">
@@ -225,7 +221,6 @@ function renderCards(output: HTMLElement): void {
         <p class="vocab-example-translation" style="margin-bottom:8px">${escHtml(item.result.exampleTranslation)}</p>
 
         ${relatedHtml ? `<div class="vocab-related" style="margin-bottom:8px">${relatedHtml}</div>` : ''}
-        ${tagsHtml ? `<div class="tags">${tagsHtml}</div>` : ''}
       </div>
     `;
 
@@ -310,7 +305,7 @@ function saveSelected(output: HTMLElement): void {
       exampleSentence: result.exampleSentence,
       exampleTranslation: result.exampleTranslation,
       relatedInfo: result.relatedInfo,
-      tags: result.tags,
+      tags: [],
       isPinned: false,
       createdAt: Date.now(),
       masteryLevel: selectedMastery,

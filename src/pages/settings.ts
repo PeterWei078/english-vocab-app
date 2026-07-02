@@ -6,6 +6,7 @@ import {
   exportVocabJson,
   importVocabJson,
   clearAllData,
+  clearAllTags,
   getStorageUsage,
 } from '../services/storage';
 import { lookupWord } from '../services/ai';
@@ -145,6 +146,14 @@ export function renderSettingsPage(container: HTMLElement): void {
 
           <div class="settings-row">
             <div>
+              <div class="settings-row-label">清除所有標籤</div>
+              <div class="settings-row-desc">移除所有單字身上的標籤（單字本身不受影響）</div>
+            </div>
+            <button id="clear-tags-btn" class="btn btn-danger btn-sm">🏷️ 清除標籤</button>
+          </div>
+
+          <div class="settings-row">
+            <div>
               <div class="settings-row-label">清除所有資料</div>
               <div class="settings-row-desc">刪除單字庫、測驗記錄與查詢歷史</div>
             </div>
@@ -262,6 +271,19 @@ function bindSettingsEvents(
       doImport(file, mode);
     }
     importInput.value = '';
+  });
+
+  // ── Clear Tags ──
+  container.querySelector('#clear-tags-btn')!.addEventListener('click', () => {
+    showConfirmDialog(
+      '清除所有標籤',
+      '這將移除所有單字身上的標籤，無法復原，確定嗎？',
+      () => {
+        clearAllTags();
+        showToast('所有標籤已清除', 'info');
+        renderSettingsPage(container);
+      }
+    );
   });
 
   // ── Clear ──

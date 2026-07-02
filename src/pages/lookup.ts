@@ -208,10 +208,6 @@ function renderResult(
     )
     .join('');
 
-  const tagsHtml = r.tags
-    .map((t) => `<span class="tag">${escHtml(t)}</span>`)
-    .join('');
-
   output.innerHTML = `
     <div class="card lookup-result">
       <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:4px">
@@ -241,12 +237,6 @@ function renderResult(
                <div class="lookup-result-label">相關用法</div>
                <div class="vocab-related">${relatedHtml}</div>
              </div>`
-          : ''
-      }
-
-      ${
-        r.tags.length
-          ? `<div class="tags" style="margin-bottom:16px">${tagsHtml}</div>`
           : ''
       }
 
@@ -308,7 +298,7 @@ function saveCurrentResult(
     exampleSentence: r.exampleSentence,
     exampleTranslation: r.exampleTranslation,
     relatedInfo: r.relatedInfo,
-    tags: r.tags,
+    tags: [],
     isPinned: false,
     createdAt: Date.now(),
     masteryLevel: selectedMastery,

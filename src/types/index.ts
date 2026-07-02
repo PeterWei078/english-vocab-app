@@ -65,5 +65,4 @@ export interface GeminiLookupResult {
   exampleSentence: string;
   exampleTranslation: string;
   relatedInfo: RelatedInfo[];
-  tags: string[];
 }
