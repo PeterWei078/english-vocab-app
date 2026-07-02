@@ -19,22 +19,6 @@ export interface VocabularyItem {
   masteryLevel: MasteryLevel;
 }
 
-export type QuizQuestionType = 'multiple-choice' | 'fill-blank' | 'zh-to-en';
-
-export interface QuizQuestion {
-  type: QuizQuestionType;
-  word: string;
-  question: string;
-  options?: string[];
-  answer: string;
-  explanation: string;
-}
-
-export interface QuizData {
-  questions: QuizQuestion[];
-  generatedAt: number;
-}
-
 export type Theme = 'light' | 'dark' | 'auto';
 
 export interface AppSettings {
@@ -55,8 +39,6 @@ export type SortMode =
   | 'unfamiliar'
   | 'okay'
   | 'familiar';
-
-export type QuizScope = 'all' | 'unfamiliar' | 'filtered';
 
 export interface GeminiLookupResult {
   word: string;

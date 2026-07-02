@@ -1,22 +1,28 @@
-import type { QuizQuestion, VocabularyItem, QuizScope } from '../types/index';
-import { generateQuiz, ThrottleError } from '../services/ai';
-import { loadSettings, loadVocab } from '../services/storage';
-import { showToast } from '../components/toast';
+import type { VocabularyItem, MasteryLevel } from '../types/index';
+import { loadVocab, updateVocabItem } from '../services/storage';
+import { speak } from '../services/speech';
+
+type QuizScope = 'all' | 'unfamiliar' | 'okay';
+
+const MASTERY_CONFIG: Record<MasteryLevel, { label: string; icon: string }> = {
+  unfamiliar: { label: '不熟', icon: '🔴' },
+  okay:       { label: '尚可', icon: '🟡' },
+  familiar:   { label: '熟悉', icon: '🟢' },
+};
+
+const MASTERY_ORDER: MasteryLevel[] = ['familiar', 'okay', 'unfamiliar'];
 
 interface QuizState {
-  questions: QuizQuestion[];
+  words: VocabularyItem[];
   currentIndex: number;
-  score: number;
-  wrongItems: Array<{ q: QuizQuestion; userAnswer: string }>;
-  answered: boolean;
+  revealed: boolean;
+  results: Array<{ word: VocabularyItem; level: MasteryLevel }>;
 }
 
 let state: QuizState | null = null;
-let filteredWords: VocabularyItem[] = [];
 
 export function renderQuizPage(container: HTMLElement): void {
   state = null;
-  filteredWords = [];
   renderSetup(container);
 }
 
@@ -24,41 +30,43 @@ export function renderQuizPage(container: HTMLElement): void {
 function renderSetup(container: HTMLElement): void {
   const all = loadVocab();
   const unfamiliar = all.filter((v) => v.masteryLevel === 'unfamiliar');
+  const okay = all.filter((v) => v.masteryLevel === 'okay');
 
   container.innerHTML = `
     <div class="page">
       <div class="quiz-setup">
         <div class="page-header">
-          <h1 class="page-title">AI 測驗</h1>
-          <p class="page-subtitle">根據你的單字庫，AI 自動出題</p>
+          <h1 class="page-title">閃卡測驗</h1>
+          <p class="page-subtitle">看單字回想意思，翻開答案自我評分</p>
         </div>
 
         ${
-          all.length < 5
+          all.length === 0
             ? `<div class="card" style="text-align:center;color:var(--text-secondary)">
                 <div style="font-size:40px;margin-bottom:12px">📚</div>
-                <p style="font-weight:600;margin-bottom:6px">單字庫至少需要 5 個單字才能生成測驗</p>
-                <p style="font-size:13px">目前共 ${all.length} 個單字</p>
+                <p style="font-weight:600">單字庫還是空的，先去查詢並收藏單字吧</p>
                </div>`
             : `<div class="card">
                 <div class="form-group">
                   <label class="label">測驗範圍</label>
                   <select id="scope-select" class="select">
                     <option value="all">全部單字（${all.length} 個）</option>
-                    <option value="unfamiliar" ${unfamiliar.length < 5 ? 'disabled' : ''}>
-                      🔴 不熟的字（${unfamiliar.length} 個）${unfamiliar.length < 5 ? ' — 不足 5 個' : ''}
+                    <option value="unfamiliar" ${unfamiliar.length === 0 ? 'disabled' : ''}>
+                      🔴 不熟的字（${unfamiliar.length} 個）
+                    </option>
+                    <option value="okay" ${okay.length === 0 ? 'disabled' : ''}>
+                      🟡 尚可的字（${okay.length} 個）
                     </option>
                   </select>
                 </div>
 
-                <div style="background:var(--bg-secondary);border-radius:var(--radius);padding:12px;margin-bottom:16px;font-size:13px;color:var(--text-secondary)">
-                  <strong>題型說明：</strong><br>
-                  選擇題（看英文選中文）、填空題（在句子中填單字）、翻譯題（看中文寫英文）各約三分之一。<br>
-                  題數：最少 5 題、最多 30 題。
+                <div class="form-group" style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
+                  <input type="checkbox" id="shuffle-check" checked style="width:16px;height:16px" />
+                  <label for="shuffle-check" style="font-size:13px;color:var(--text-secondary)">隨機排序</label>
                 </div>
 
                 <button id="start-quiz-btn" class="btn btn-primary btn-full btn-lg">
-                  🎯 開始生成測驗
+                  🎯 開始測驗
                 </button>
                </div>`
         }
@@ -68,228 +76,170 @@ function renderSetup(container: HTMLElement): void {
 
   container.querySelector('#start-quiz-btn')?.addEventListener('click', () => {
     const scope = (container.querySelector<HTMLSelectElement>('#scope-select')?.value ?? 'all') as QuizScope;
-    startQuiz(scope, container);
+    const shuffle = container.querySelector<HTMLInputElement>('#shuffle-check')?.checked ?? true;
+    startQuiz(scope, shuffle, container);
   });
 }
 
-async function startQuiz(scope: QuizScope, container: HTMLElement): Promise<void> {
-  const settings = loadSettings();
-  if (!settings.geminiApiKey) {
-    showToast('請先在「設定」頁面輸入 Gemini API Key', 'warning');
-    window.location.hash = '#settings';
-    return;
-  }
-
+function startQuiz(scope: QuizScope, shuffle: boolean, container: HTMLElement): void {
   const all = loadVocab();
-  filteredWords = scope === 'unfamiliar'
-    ? all.filter((v) => v.masteryLevel === 'unfamiliar')
-    : all;
+  let words =
+    scope === 'unfamiliar'
+      ? all.filter((v) => v.masteryLevel === 'unfamiliar')
+      : scope === 'okay'
+      ? all.filter((v) => v.masteryLevel === 'okay')
+      : all;
 
-  if (filteredWords.length < 5) {
-    showToast('單字數量不足，無法生成測驗', 'warning');
+  if (words.length === 0) {
+    renderSetup(container);
     return;
   }
 
-  container.innerHTML = `
-    <div class="page">
-      <div class="quiz-setup">
-        <div class="loading-overlay">
-          <div class="spinner"></div>
-          <span>AI 正在生成測驗題…</span>
-        </div>
-      </div>
-    </div>
-  `;
-
-  try {
-    const questions = await generateQuiz(settings.geminiApiKey, filteredWords);
-    state = {
-      questions,
-      currentIndex: 0,
-      score: 0,
-      wrongItems: [],
-      answered: false,
-    };
-    renderQuestion(container);
-  } catch (err) {
-    const msg =
-      err instanceof ThrottleError
-        ? err.message
-        : err instanceof Error
-        ? err.message
-        : '未知錯誤';
-    showToast(`測驗生成失敗：${msg}`, 'error');
-    renderSetup(container);
+  if (shuffle) {
+    words = [...words];
+    for (let i = words.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [words[i], words[j]] = [words[j], words[i]];
+    }
   }
+
+  state = { words, currentIndex: 0, revealed: false, results: [] };
+  renderCard(container);
 }
 
-// ── Question Screen ─────────────────────────────────────────
-function renderQuestion(container: HTMLElement): void {
+// ── Flashcard Screen ─────────────────────────────────────────
+function renderCard(container: HTMLElement): void {
   if (!state) return;
 
-  const { questions, currentIndex } = state;
-  const q = questions[currentIndex];
-  const progress = ((currentIndex + 1) / questions.length) * 100;
-
-  state.answered = false;
+  const { words, currentIndex } = state;
+  const item = words[currentIndex];
+  const progress = ((currentIndex + 1) / words.length) * 100;
+  state.revealed = false;
 
   container.innerHTML = `
     <div class="page">
       <div class="quiz-question-area">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-          <span style="font-size:13px;color:var(--text-muted)">第 ${currentIndex + 1} 題 / 共 ${questions.length} 題</span>
-          <span style="font-size:13px;color:var(--text-muted)">得分：${state.score}</span>
+          <span style="font-size:13px;color:var(--text-muted)">第 ${currentIndex + 1} 張 / 共 ${words.length} 張</span>
         </div>
         <div class="quiz-progress-bar">
           <div class="quiz-progress-fill" style="width:${progress}%"></div>
         </div>
 
-        <div class="card" id="question-card">
-          <div style="font-size:12px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:12px">
-            ${q.type === 'multiple-choice' ? '選擇題' : q.type === 'fill-blank' ? '填空題' : '翻譯題'}
+        <div class="card" id="flashcard" style="text-align:center;min-height:200px;display:flex;flex-direction:column;justify-content:center">
+          <div style="font-size:12px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:12px">${escHtml(item.partOfSpeech)}</div>
+          <div style="font-size:32px;font-weight:800;margin-bottom:16px">
+            ${escHtml(item.word)}
+            <button id="speak-word-btn" class="btn-icon" style="vertical-align:middle" title="朗讀單字">🔊</button>
           </div>
-          <p style="font-size:16px;font-weight:600;margin-bottom:20px;line-height:1.5">${escHtml(q.question)}</p>
           <div id="answer-area"></div>
-          <div id="feedback-area"></div>
         </div>
 
-        <div id="next-btn-area" style="margin-top:16px"></div>
+        <div id="action-area" style="margin-top:16px"></div>
       </div>
     </div>
   `;
 
-  renderAnswerArea(q, container);
+  container.querySelector('#speak-word-btn')?.addEventListener('click', () => speak(item.word));
+
+  const actionArea = container.querySelector<HTMLElement>('#action-area')!;
+  actionArea.innerHTML = `<button id="reveal-btn" class="btn btn-primary btn-full btn-lg">🔍 顯示答案</button>`;
+  actionArea.querySelector('#reveal-btn')!.addEventListener('click', () => revealAnswer(container));
 }
 
-function renderAnswerArea(q: QuizQuestion, container: HTMLElement): void {
-  const area = container.querySelector<HTMLElement>('#answer-area')!;
+function revealAnswer(container: HTMLElement): void {
+  if (!state || state.revealed) return;
+  state.revealed = true;
 
-  if (q.type === 'multiple-choice' && q.options) {
-    q.options.forEach((opt) => {
-      const btn = document.createElement('button');
-      btn.className = 'quiz-option';
-      btn.textContent = opt;
-      btn.addEventListener('click', () => handleAnswer(opt, q, container));
-      area.appendChild(btn);
-    });
-  } else {
-    // fill-blank or zh-to-en
-    const wrap = document.createElement('div');
-    wrap.innerHTML = `
-      <input id="fill-input" class="quiz-fill-input" type="text" placeholder="輸入答案…" autocomplete="off" />
-      <div style="margin-top:10px">
-        <button id="submit-fill-btn" class="btn btn-primary">確認</button>
-      </div>
-    `;
-    area.appendChild(wrap);
+  const item = state.words[state.currentIndex];
+  const answerArea = container.querySelector<HTMLElement>('#answer-area')!;
 
-    const input = wrap.querySelector<HTMLInputElement>('#fill-input')!;
-    const submitBtn = wrap.querySelector<HTMLButtonElement>('#submit-fill-btn')!;
+  const relatedHtml = item.relatedInfo.length
+    ? `<div class="vocab-related" style="text-align:left;margin-top:12px">
+        ${item.relatedInfo
+          .map(
+            (r) =>
+              `<div class="vocab-related-item"><span class="vocab-related-label">${escHtml(r.label)}：</span><span class="vocab-related-content">${escHtml(r.content)}</span></div>`
+          )
+          .join('')}
+       </div>`
+    : '';
 
-    const submit = () => {
-      const val = input.value.trim();
-      if (!val) return;
-      handleAnswer(val, q, container);
-      submitBtn.disabled = true;
-      input.disabled = true;
-    };
+  const tagsHtml = item.tags.length
+    ? `<div class="tags" style="justify-content:center;margin-top:10px">
+        ${item.tags.map((t) => `<span class="tag">${escHtml(t)}</span>`).join('')}
+       </div>`
+    : '';
 
-    input.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') submit();
-    });
-    submitBtn.addEventListener('click', submit);
-
-    setTimeout(() => input.focus(), 50);
-  }
-}
-
-function handleAnswer(
-  userAnswer: string,
-  q: QuizQuestion,
-  container: HTMLElement
-): void {
-  if (!state || state.answered) return;
-  state.answered = true;
-
-  const isCorrect =
-    userAnswer.toLowerCase().trim() === q.answer.toLowerCase().trim();
-
-  if (isCorrect) {
-    state.score++;
-  } else {
-    state.wrongItems.push({ q, userAnswer });
-  }
-
-  // Visual feedback on options / input
-  if (q.type === 'multiple-choice') {
-    container.querySelectorAll<HTMLButtonElement>('.quiz-option').forEach((btn) => {
-      btn.disabled = true;
-      if (btn.textContent?.trim() === q.answer) {
-        btn.classList.add('correct');
-      } else if (btn.textContent?.trim() === userAnswer && !isCorrect) {
-        btn.classList.add('wrong');
-      }
-    });
-  } else {
-    const input = container.querySelector<HTMLInputElement>('#fill-input');
-    if (input) {
-      input.classList.add(isCorrect ? 'correct' : 'wrong');
-    }
-  }
-
-  // Feedback message
-  const feedbackArea = container.querySelector<HTMLElement>('#feedback-area')!;
-  feedbackArea.innerHTML = `
-    <div class="quiz-feedback ${isCorrect ? 'correct' : 'wrong'}" style="margin-top:16px">
-      <strong>${isCorrect ? '✅ 正確！' : `❌ 答錯了，正確答案是：${escHtml(q.answer)}`}</strong><br>
-      <span style="font-size:13px">${escHtml(q.explanation)}</span>
+  answerArea.innerHTML = `
+    <hr style="border:none;border-top:1px solid var(--border);margin:16px 0" />
+    <div style="font-size:20px;font-weight:700;color:var(--accent);margin-bottom:12px">${escHtml(item.translation)}</div>
+    <div class="vocab-example" style="text-align:left">"${escHtml(item.exampleSentence)}"
+      <button id="speak-example-btn" class="btn-icon" style="display:inline-flex;width:24px;height:24px;font-size:14px;vertical-align:middle" title="朗讀例句">🔊</button>
     </div>
+    <div class="vocab-example-translation" style="text-align:left">${escHtml(item.exampleTranslation)}</div>
+    ${relatedHtml}
+    ${tagsHtml}
   `;
 
-  // Next / Finish button
-  const nextArea = container.querySelector<HTMLElement>('#next-btn-area')!;
-  const isLast = state.currentIndex === state.questions.length - 1;
-  nextArea.innerHTML = `
-    <button id="next-btn" class="btn btn-primary btn-full">
-      ${isLast ? '查看成績 🎉' : '下一題 →'}
-    </button>
+  answerArea.querySelector('#speak-example-btn')?.addEventListener('click', () => speak(item.exampleSentence, 0.85));
+
+  const actionArea = container.querySelector<HTMLElement>('#action-area')!;
+  actionArea.innerHTML = `
+    <div style="font-size:13px;color:var(--text-secondary);text-align:center;margin-bottom:8px">你對這個字的熟悉程度？</div>
+    <div class="mastery-selector"></div>
   `;
-  nextArea.querySelector('#next-btn')!.addEventListener('click', () => {
-    if (isLast) {
-      renderResult(container);
-    } else {
-      state!.currentIndex++;
-      renderQuestion(container);
-    }
+  const selector = actionArea.querySelector<HTMLElement>('.mastery-selector')!;
+  MASTERY_ORDER.forEach((level) => {
+    const { icon, label } = MASTERY_CONFIG[level];
+    const btn = document.createElement('button');
+    btn.className = `mastery-option ${level}`;
+    btn.textContent = `${icon} ${label}`;
+    btn.addEventListener('click', () => rateCard(level, container));
+    selector.appendChild(btn);
   });
+}
+
+function rateCard(level: MasteryLevel, container: HTMLElement): void {
+  if (!state) return;
+
+  const item = state.words[state.currentIndex];
+  updateVocabItem(item.id, { masteryLevel: level });
+  state.results.push({ word: item, level });
+
+  if (state.currentIndex === state.words.length - 1) {
+    renderResult(container);
+  } else {
+    state.currentIndex++;
+    renderCard(container);
+  }
 }
 
 // ── Result Screen ────────────────────────────────────────────
 function renderResult(container: HTMLElement): void {
   if (!state) return;
 
-  const { score, questions, wrongItems } = state;
-  const total = questions.length;
-  const pct = Math.round((score / total) * 100);
+  const { results } = state;
+  const counts: Record<MasteryLevel, number> = { familiar: 0, okay: 0, unfamiliar: 0 };
+  results.forEach((r) => counts[r.level]++);
 
-  let grade = '';
-  if (score === total) grade = '🏆 完美！全部答對！';
-  else if (pct >= 80) grade = '🌟 優秀！繼續保持！';
-  else if (pct >= 60) grade = '📈 不錯！還有進步空間';
-  else grade = '💪 加油！多練習幾次吧';
+  const summaryHtml = MASTERY_ORDER.map((level) => {
+    const { icon, label } = MASTERY_CONFIG[level];
+    return `
+      <div style="flex:1;text-align:center">
+        <div style="font-size:28px;font-weight:800">${counts[level]}</div>
+        <div style="font-size:13px;color:var(--text-secondary)">${icon} ${label}</div>
+      </div>`;
+  }).join('');
 
-  const wrongHtml = wrongItems.length
-    ? wrongItems
+  const unfamiliarItems = results.filter((r) => r.level === 'unfamiliar');
+  const reviewHtml = unfamiliarItems.length
+    ? unfamiliarItems
         .map(
-          (w) => `
-        <div style="padding:12px 0;border-bottom:1px solid var(--border)">
-          <div style="font-weight:600;margin-bottom:4px">${escHtml(w.q.word)}</div>
-          <div style="font-size:13px;color:var(--text-secondary)">${escHtml(w.q.question)}</div>
-          <div style="font-size:13px;margin-top:4px">
-            你的答案：<span style="color:var(--danger)">${escHtml(w.userAnswer)}</span>
-            正確答案：<span style="color:var(--success)">${escHtml(w.q.answer)}</span>
-          </div>
-          <div style="font-size:12px;color:var(--text-muted);margin-top:4px">${escHtml(w.q.explanation)}</div>
+          (r) => `
+        <div style="padding:10px 0;border-bottom:1px solid var(--border)">
+          <div style="font-weight:600">${escHtml(r.word.word)}</div>
+          <div style="font-size:13px;color:var(--text-secondary)">${escHtml(r.word.translation)}</div>
         </div>`
         )
         .join('')
@@ -299,17 +249,16 @@ function renderResult(container: HTMLElement): void {
     <div class="page">
       <div class="quiz-setup">
         <div class="card" style="text-align:center;margin-bottom:20px">
-          <div style="font-size:48px;margin-bottom:12px">📊</div>
-          <div style="font-size:32px;font-weight:800;margin-bottom:6px">${score} / ${total}</div>
-          <div style="font-size:18px;color:var(--text-secondary);margin-bottom:12px">${pct}%</div>
-          <div style="font-size:15px;font-weight:600;color:var(--accent)">${grade}</div>
+          <div style="font-size:48px;margin-bottom:12px">🎉</div>
+          <div style="font-size:18px;font-weight:700;margin-bottom:16px">複習完成！共 ${results.length} 張卡片</div>
+          <div style="display:flex;gap:8px">${summaryHtml}</div>
         </div>
 
         ${
-          wrongItems.length
+          unfamiliarItems.length
             ? `<div class="card">
-                <h3 style="font-size:15px;font-weight:700;margin-bottom:12px">❌ 答錯的題目（${wrongItems.length} 題）</h3>
-                ${wrongHtml}
+                <h3 style="font-size:15px;font-weight:700;margin-bottom:8px">🔴 標記為不熟的單字（${unfamiliarItems.length} 個）</h3>
+                ${reviewHtml}
                </div>`
             : ''
         }
@@ -322,9 +271,7 @@ function renderResult(container: HTMLElement): void {
     </div>
   `;
 
-  container.querySelector('#retry-btn')!.addEventListener('click', () =>
-    renderSetup(container)
-  );
+  container.querySelector('#retry-btn')!.addEventListener('click', () => renderSetup(container));
 }
 
 function escHtml(str: string): string {

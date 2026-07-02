@@ -1,4 +1,4 @@
-import type { GeminiLookupResult, QuizQuestion, VocabularyItem } from '../types/index';
+import type { GeminiLookupResult } from '../types/index';
 
 const GEMINI_URL =
   'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent';
@@ -67,60 +67,6 @@ relatedInfo 最多提供 3 項，選最實用的（詞形變化、常見搭配�
   const text = await callGemini(apiKey, prompt);
   const clean = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
   return JSON.parse(clean) as GeminiLookupResult;
-}
-
-// ── Quiz Generation ───────────────────────────────────────
-export async function generateQuiz(
-  apiKey: string,
-  words: VocabularyItem[]
-): Promise<QuizQuestion[]> {
-  const count = Math.min(Math.max(words.length, 5), 30);
-  const wordList = words
-    .map(
-      (w) =>
-        `- ${w.word} (${w.partOfSpeech}): ${w.translation} / 例句: ${w.exampleSentence}`
-    )
-    .join('\n');
-
-  const prompt = `你是英語學習測驗出題老師。請根據以下單字庫，出 ${count} 題英文測驗題。
-
-單字庫：
-${wordList}
-
-題型分配（各約三分之一）：
-1. multiple-choice：看英文單字，選繁體中文意思（4 個選項，1 個正確 + 3 個干擾詞）
-2. fill-blank：在例句中挖掉目標單字（用 _____ 取代），請學習者填入
-3. zh-to-en：看繁體中文，請學習者寫出英文單字
-
-嚴格以 JSON 陣列格式回傳，不要加任何其他文字：
-[
-  {
-    "type": "multiple-choice",
-    "word": "目標單字",
-    "question": "題目文字",
-    "options": ["選項A", "選項B", "選項C", "選項D"],
-    "answer": "正確答案",
-    "explanation": "一句話解釋（繁體中文）"
-  },
-  {
-    "type": "fill-blank",
-    "word": "目標單字",
-    "question": "含 _____ 的英文例句",
-    "answer": "應填入的單字",
-    "explanation": "一句話解釋（繁體中文）"
-  },
-  {
-    "type": "zh-to-en",
-    "word": "目標單字",
-    "question": "繁體中文含義",
-    "answer": "英文單字",
-    "explanation": "一句話解釋（繁體中文）"
-  }
-]`;
-
-  const text = await callGemini(apiKey, prompt);
-  const clean = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-  return JSON.parse(clean) as QuizQuestion[];
 }
 
 // ── Article Analysis ─────────────────────────────────────

@@ -1,13 +1,11 @@
 import type {
   VocabularyItem,
-  QuizData,
   AppSettings,
   LookupHistoryItem,
 } from '../types/index';
 
 const KEYS = {
   VOCAB: 'vocab_list',
-  QUIZ: 'quiz_data',
   SETTINGS: 'settings',
   HISTORY: 'lookup_history',
 } as const;
@@ -63,20 +61,6 @@ export function wordExists(word: string): boolean {
 
 export function clearAllTags(): void {
   saveVocab(loadVocab().map((v) => ({ ...v, tags: [] })));
-}
-
-// ── Quiz ──────────────────────────────────────────────────
-export function loadQuizData(): QuizData | null {
-  try {
-    const raw = localStorage.getItem(KEYS.QUIZ);
-    return raw ? (JSON.parse(raw) as QuizData) : null;
-  } catch {
-    return null;
-  }
-}
-
-export function saveQuizData(data: QuizData): void {
-  localStorage.setItem(KEYS.QUIZ, JSON.stringify(data));
 }
 
 // ── Settings ──────────────────────────────────────────────
@@ -181,7 +165,6 @@ const STORAGE_TOTAL_BYTES = 5 * 1024 * 1024; // 5MB standard browser limit
 export function getStorageUsage(): StorageUsage {
   const breakdown: StorageBreakdown[] = [
     { key: KEYS.VOCAB,    label: '單字庫' },
-    { key: KEYS.QUIZ,     label: '測驗資料' },
     { key: KEYS.SETTINGS, label: '設定' },
     { key: KEYS.HISTORY,  label: '查詢歷史' },
   ].map(({ key, label }) => {
