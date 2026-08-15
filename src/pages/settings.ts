@@ -3,6 +3,7 @@ import {
   loadSettings,
   saveSettings,
   loadVocab,
+  loadPhrases,
   exportVocabJson,
   importVocabJson,
   clearAllData,
@@ -24,10 +25,10 @@ function buildBookmarklet(): string {
 export function renderSettingsPage(container: HTMLElement): void {
   const settings = loadSettings();
   const vocab = loadVocab();
-  const firstDate = vocab.length
-    ? new Date(
-        Math.min(...vocab.map((v) => v.createdAt))
-      ).toLocaleDateString('zh-TW')
+  const phrases = loadPhrases();
+  const allCreatedAt = [...vocab, ...phrases].map((v) => v.createdAt);
+  const firstDate = allCreatedAt.length
+    ? new Date(Math.min(...allCreatedAt)).toLocaleDateString('zh-TW')
     : '—';
 
   const bookmarkletHref = buildBookmarklet();
@@ -121,15 +122,15 @@ export function renderSettingsPage(container: HTMLElement): void {
 
           <div class="settings-row">
             <div>
-              <div class="settings-row-label">匯出單字庫</div>
-              <div class="settings-row-desc">下載 JSON 備份檔</div>
+              <div class="settings-row-label">匯出單字庫／片語庫</div>
+              <div class="settings-row-desc">下載 JSON 備份檔（含單字與片語）</div>
             </div>
             <button id="export-btn" class="btn btn-secondary btn-sm">📤 匯出</button>
           </div>
 
           <div class="settings-row">
             <div>
-              <div class="settings-row-label">匯入單字庫</div>
+              <div class="settings-row-label">匯入單字庫／片語庫</div>
               <div class="settings-row-desc">從 JSON 備份檔還原</div>
             </div>
             <div style="display:flex;gap:6px;flex-shrink:0">
@@ -147,7 +148,7 @@ export function renderSettingsPage(container: HTMLElement): void {
           <div class="settings-row">
             <div>
               <div class="settings-row-label">清除所有標籤</div>
-              <div class="settings-row-desc">移除所有單字身上的標籤（單字本身不受影響）</div>
+              <div class="settings-row-desc">移除單字庫與片語庫所有項目的標籤（項目本身不受影響）</div>
             </div>
             <button id="clear-tags-btn" class="btn btn-danger btn-sm">🏷️ 清除標籤</button>
           </div>
@@ -155,7 +156,7 @@ export function renderSettingsPage(container: HTMLElement): void {
           <div class="settings-row">
             <div>
               <div class="settings-row-label">清除所有資料</div>
-              <div class="settings-row-desc">刪除單字庫、測驗記錄與查詢歷史</div>
+              <div class="settings-row-desc">刪除單字庫、片語庫、測驗記錄與查詢歷史</div>
             </div>
             <button id="clear-btn" class="btn btn-danger btn-sm">🗑️ 清除</button>
           </div>
@@ -170,6 +171,10 @@ export function renderSettingsPage(container: HTMLElement): void {
           <div class="settings-row">
             <span class="settings-row-label">單字庫數量</span>
             <span style="font-weight:600;color:var(--accent)">${vocab.length} 個單字</span>
+          </div>
+          <div class="settings-row">
+            <span class="settings-row-label">片語庫數量</span>
+            <span style="font-weight:600;color:var(--accent)">${phrases.length} 個片語</span>
           </div>
           <div class="settings-row">
             <span class="settings-row-label">首次建立日期</span>
@@ -307,8 +312,8 @@ function doImport(file: File, mode: 'merge' | 'replace'): void {
       const count = importVocabJson(reader.result as string, mode);
       showToast(
         mode === 'replace'
-          ? `匯入成功！共 ${count} 個單字`
-          : `成功新增 ${count} 個單字（已略過重複）`,
+          ? `匯入成功！共 ${count} 個項目`
+          : `成功新增 ${count} 個項目（已略過重複）`,
         'success'
       );
     } catch {

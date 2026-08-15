@@ -2,14 +2,15 @@ import type { GeminiLookupResult, VocabularyItem, MasteryLevel } from '../types/
 import { lookupWord, ThrottleError, getThrottleRemaining } from '../services/ai';
 import {
   loadSettings,
-  addVocabItem,
-  wordExists,
+  addVocabOrPhraseItem,
+  vocabOrPhraseExists,
   loadHistory,
   pushHistory,
   clearHistory,
 } from '../services/storage';
 import { speak } from '../services/speech';
 import { showToast } from '../components/toast';
+import { isPhraseLike } from '../utils/pos';
 
 let throttleTimer: ReturnType<typeof setInterval> | null = null;
 let currentResult: GeminiLookupResult | null = null;
@@ -196,7 +197,9 @@ function renderResult(
   output: HTMLElement,
   container: HTMLElement
 ): void {
-  const alreadySaved = wordExists(r.word);
+  const alreadySaved = vocabOrPhraseExists(r.word, r.partOfSpeech);
+  const targetLabel = isPhraseLike(r.partOfSpeech) ? '片語庫' : '單字庫';
+  const itemLabel = isPhraseLike(r.partOfSpeech) ? '此片語' : '此單字';
 
   const relatedHtml = r.relatedInfo
     .map(
@@ -244,16 +247,16 @@ function renderResult(
 
       ${
         alreadySaved
-          ? `<p style="color:var(--success);font-size:14px;font-weight:500">✅ 此單字已在單字庫中</p>`
+          ? `<p style="color:var(--success);font-size:14px;font-weight:500">✅ ${itemLabel}已在${targetLabel}中</p>`
           : `<div>
-               <p class="label" style="margin-bottom:8px">存入單字庫（選擇熟練度）</p>
+               <p class="label" style="margin-bottom:8px">存入${targetLabel}（選擇熟練度）</p>
                <div class="mastery-selector" id="mastery-selector">
                  <button class="mastery-option unfamiliar selected" data-level="unfamiliar">🔴 不熟</button>
                  <button class="mastery-option okay" data-level="okay">🟡 尚可</button>
                  <button class="mastery-option familiar" data-level="familiar">🟢 熟悉</button>
                </div>
                <div class="lookup-actions" style="margin-top:12px">
-                 <button id="save-btn" class="btn btn-primary">📥 存入單字庫</button>
+                 <button id="save-btn" class="btn btn-primary">📥 存入${targetLabel}</button>
                </div>
              </div>`
       }
@@ -304,13 +307,15 @@ function saveCurrentResult(
     masteryLevel: selectedMastery,
   };
 
-  addVocabItem(item);
-  showToast(`「${r.word}」已存入單字庫 ✅`, 'success');
+  const targetLabel = isPhraseLike(r.partOfSpeech) ? '片語庫' : '單字庫';
+
+  addVocabOrPhraseItem(item);
+  showToast(`「${r.word}」已存入${targetLabel} ✅`, 'success');
 
   // Replace save button with saved indicator
   const saveArea = output.querySelector<HTMLElement>('[id="save-btn"]')?.parentElement?.parentElement;
   if (saveArea) {
-    saveArea.innerHTML = `<p style="color:var(--success);font-size:14px;font-weight:500">✅ 已存入單字庫</p>`;
+    saveArea.innerHTML = `<p style="color:var(--success);font-size:14px;font-weight:500">✅ 已存入${targetLabel}</p>`;
   }
 
   refreshHistoryPanel(container);

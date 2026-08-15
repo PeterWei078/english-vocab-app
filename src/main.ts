@@ -1,7 +1,8 @@
-import { loadSettings, saveSettings } from './services/storage';
+import { loadSettings, saveSettings, migratePhraseItemsIfNeeded } from './services/storage';
 import { renderLookupPage } from './pages/lookup';
 import { renderAnalyzePage } from './pages/analyze';
 import { renderVocabularyPage } from './pages/vocabulary';
+import { renderPhraseLibraryPage } from './pages/phraseLibrary';
 import { renderQuizPage } from './pages/quiz';
 import { renderSettingsPage } from './pages/settings';
 import type { Theme } from './types/index';
@@ -38,12 +39,13 @@ function initTheme(): void {
 }
 
 // ── Router ────────────────────────────────────────────────
-type PageId = 'lookup' | 'analyze' | 'vocabulary' | 'quiz' | 'settings';
+type PageId = 'lookup' | 'analyze' | 'vocabulary' | 'phrases' | 'quiz' | 'settings';
 
 const RENDERERS: Record<PageId, (c: HTMLElement) => void> = {
   lookup:     (c) => renderLookupPage(c),
   analyze:    renderAnalyzePage,
   vocabulary: renderVocabularyPage,
+  phrases:    renderPhraseLibraryPage,
   quiz:       renderQuizPage,
   settings:   renderSettingsPage,
 };
@@ -91,6 +93,7 @@ function initThemeToggle(): void {
 function init(): void {
   initTheme();
   initThemeToggle();
+  migratePhraseItemsIfNeeded();
 
   // Handle ?q= from bookmarklet
   const params = new URLSearchParams(location.search);

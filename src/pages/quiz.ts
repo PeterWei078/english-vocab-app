@@ -1,8 +1,24 @@
 import type { VocabularyItem, MasteryLevel } from '../types/index';
-import { loadVocab, updateVocabItem } from '../services/storage';
+import { loadVocab, loadPhrases, updateVocabItem, updatePhraseItem } from '../services/storage';
 import { speak } from '../services/speech';
 
 type QuizScope = 'all' | 'unfamiliar' | 'okay';
+type QuizSource = 'vocab' | 'phrase' | 'all';
+type CardOrigin = 'vocab' | 'phrase';
+
+interface QuizCard {
+  item: VocabularyItem;
+  origin: CardOrigin;
+}
+
+function loadBySource(source: QuizSource): QuizCard[] {
+  const vocabCards: QuizCard[] = loadVocab().map((item) => ({ item, origin: 'vocab' as const }));
+  const phraseCards: QuizCard[] = loadPhrases().map((item) => ({ item, origin: 'phrase' as const }));
+
+  if (source === 'vocab') return vocabCards;
+  if (source === 'phrase') return phraseCards;
+  return [...vocabCards, ...phraseCards];
+}
 
 const MASTERY_CONFIG: Record<MasteryLevel, { label: string; icon: string }> = {
   unfamiliar: { label: '不熟', icon: '🔴' },
@@ -13,13 +29,15 @@ const MASTERY_CONFIG: Record<MasteryLevel, { label: string; icon: string }> = {
 const MASTERY_ORDER: MasteryLevel[] = ['familiar', 'okay', 'unfamiliar'];
 
 interface QuizState {
-  words: VocabularyItem[];
+  source: QuizSource;
+  cards: QuizCard[];
   currentIndex: number;
   revealed: boolean;
-  results: Array<{ word: VocabularyItem; level: MasteryLevel }>;
+  results: Array<{ card: QuizCard; level: MasteryLevel }>;
 }
 
 let state: QuizState | null = null;
+let currentSource: QuizSource = 'all';
 
 export function renderQuizPage(container: HTMLElement): void {
   state = null;
@@ -28,34 +46,46 @@ export function renderQuizPage(container: HTMLElement): void {
 
 // ── Setup Screen ────────────────────────────────────────────
 function renderSetup(container: HTMLElement): void {
-  const all = loadVocab();
-  const unfamiliar = all.filter((v) => v.masteryLevel === 'unfamiliar');
-  const okay = all.filter((v) => v.masteryLevel === 'okay');
+  const cards = loadBySource(currentSource);
+  const unfamiliar = cards.filter((c) => c.item.masteryLevel === 'unfamiliar');
+  const okay = cards.filter((c) => c.item.masteryLevel === 'okay');
+
+  const vocabTotal = loadVocab().length;
+  const phraseTotal = loadPhrases().length;
 
   container.innerHTML = `
     <div class="page">
       <div class="quiz-setup">
         <div class="page-header">
           <h1 class="page-title">閃卡測驗</h1>
-          <p class="page-subtitle">看單字回想意思，翻開答案自我評分</p>
+          <p class="page-subtitle">看單字/片語回想意思，翻開答案自我評分</p>
         </div>
 
         ${
-          all.length === 0
+          vocabTotal + phraseTotal === 0
             ? `<div class="card" style="text-align:center;color:var(--text-secondary)">
                 <div style="font-size:40px;margin-bottom:12px">📚</div>
-                <p style="font-weight:600">單字庫還是空的，先去查詢並收藏單字吧</p>
+                <p style="font-weight:600">單字庫和片語庫都還是空的，先去查詢並收藏吧</p>
                </div>`
             : `<div class="card">
                 <div class="form-group">
+                  <label class="label">測驗來源</label>
+                  <select id="source-select" class="select">
+                    <option value="all">📚🧩 全部（${vocabTotal + phraseTotal} 個）</option>
+                    <option value="vocab" ${vocabTotal === 0 ? 'disabled' : ''}>📚 單字庫（${vocabTotal} 個）</option>
+                    <option value="phrase" ${phraseTotal === 0 ? 'disabled' : ''}>🧩 片語庫（${phraseTotal} 個）</option>
+                  </select>
+                </div>
+
+                <div class="form-group">
                   <label class="label">測驗範圍</label>
                   <select id="scope-select" class="select">
-                    <option value="all">全部單字（${all.length} 個）</option>
+                    <option value="all">全部（${cards.length} 個）</option>
                     <option value="unfamiliar" ${unfamiliar.length === 0 ? 'disabled' : ''}>
-                      🔴 不熟的字（${unfamiliar.length} 個）
+                      🔴 不熟的（${unfamiliar.length} 個）
                     </option>
                     <option value="okay" ${okay.length === 0 ? 'disabled' : ''}>
-                      🟡 尚可的字（${okay.length} 個）
+                      🟡 尚可的（${okay.length} 個）
                     </option>
                   </select>
                 </div>
@@ -65,7 +95,7 @@ function renderSetup(container: HTMLElement): void {
                   <label for="shuffle-check" style="font-size:13px;color:var(--text-secondary)">隨機排序</label>
                 </div>
 
-                <button id="start-quiz-btn" class="btn btn-primary btn-full btn-lg">
+                <button id="start-quiz-btn" class="btn btn-primary btn-full btn-lg" ${cards.length === 0 ? 'disabled' : ''}>
                   🎯 開始測驗
                 </button>
                </div>`
@@ -73,6 +103,15 @@ function renderSetup(container: HTMLElement): void {
       </div>
     </div>
   `;
+
+  const sourceSelect = container.querySelector<HTMLSelectElement>('#source-select');
+  if (sourceSelect) {
+    sourceSelect.value = currentSource;
+    sourceSelect.addEventListener('change', () => {
+      currentSource = sourceSelect.value as QuizSource;
+      renderSetup(container);
+    });
+  }
 
   container.querySelector('#start-quiz-btn')?.addEventListener('click', () => {
     const scope = (container.querySelector<HTMLSelectElement>('#scope-select')?.value ?? 'all') as QuizScope;
@@ -82,28 +121,28 @@ function renderSetup(container: HTMLElement): void {
 }
 
 function startQuiz(scope: QuizScope, shuffle: boolean, container: HTMLElement): void {
-  const all = loadVocab();
-  let words =
+  const all = loadBySource(currentSource);
+  let cards =
     scope === 'unfamiliar'
-      ? all.filter((v) => v.masteryLevel === 'unfamiliar')
+      ? all.filter((c) => c.item.masteryLevel === 'unfamiliar')
       : scope === 'okay'
-      ? all.filter((v) => v.masteryLevel === 'okay')
+      ? all.filter((c) => c.item.masteryLevel === 'okay')
       : all;
 
-  if (words.length === 0) {
+  if (cards.length === 0) {
     renderSetup(container);
     return;
   }
 
   if (shuffle) {
-    words = [...words];
-    for (let i = words.length - 1; i > 0; i--) {
+    cards = [...cards];
+    for (let i = cards.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
-      [words[i], words[j]] = [words[j], words[i]];
+      [cards[i], cards[j]] = [cards[j], cards[i]];
     }
   }
 
-  state = { words, currentIndex: 0, revealed: false, results: [] };
+  state = { source: currentSource, cards, currentIndex: 0, revealed: false, results: [] };
   renderCard(container);
 }
 
@@ -111,16 +150,16 @@ function startQuiz(scope: QuizScope, shuffle: boolean, container: HTMLElement): 
 function renderCard(container: HTMLElement): void {
   if (!state) return;
 
-  const { words, currentIndex } = state;
-  const item = words[currentIndex];
-  const progress = ((currentIndex + 1) / words.length) * 100;
+  const { cards, currentIndex } = state;
+  const item = cards[currentIndex].item;
+  const progress = ((currentIndex + 1) / cards.length) * 100;
   state.revealed = false;
 
   container.innerHTML = `
     <div class="page">
       <div class="quiz-question-area">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-          <span style="font-size:13px;color:var(--text-muted)">第 ${currentIndex + 1} 張 / 共 ${words.length} 張</span>
+          <span style="font-size:13px;color:var(--text-muted)">第 ${currentIndex + 1} 張 / 共 ${cards.length} 張</span>
         </div>
         <div class="quiz-progress-bar">
           <div class="quiz-progress-fill" style="width:${progress}%"></div>
@@ -151,7 +190,7 @@ function revealAnswer(container: HTMLElement): void {
   if (!state || state.revealed) return;
   state.revealed = true;
 
-  const item = state.words[state.currentIndex];
+  const item = state.cards[state.currentIndex].item;
   const answerArea = container.querySelector<HTMLElement>('#answer-area')!;
 
   const relatedHtml = item.relatedInfo.length
@@ -203,11 +242,15 @@ function revealAnswer(container: HTMLElement): void {
 function rateCard(level: MasteryLevel, container: HTMLElement): void {
   if (!state) return;
 
-  const item = state.words[state.currentIndex];
-  updateVocabItem(item.id, { masteryLevel: level });
-  state.results.push({ word: item, level });
+  const card = state.cards[state.currentIndex];
+  if (card.origin === 'phrase') {
+    updatePhraseItem(card.item.id, { masteryLevel: level });
+  } else {
+    updateVocabItem(card.item.id, { masteryLevel: level });
+  }
+  state.results.push({ card, level });
 
-  if (state.currentIndex === state.words.length - 1) {
+  if (state.currentIndex === state.cards.length - 1) {
     renderResult(container);
   } else {
     state.currentIndex++;
@@ -219,7 +262,7 @@ function rateCard(level: MasteryLevel, container: HTMLElement): void {
 function renderResult(container: HTMLElement): void {
   if (!state) return;
 
-  const { results } = state;
+  const { results, source } = state;
   const counts: Record<MasteryLevel, number> = { familiar: 0, okay: 0, unfamiliar: 0 };
   results.forEach((r) => counts[r.level]++);
 
@@ -238,12 +281,15 @@ function renderResult(container: HTMLElement): void {
         .map(
           (r) => `
         <div style="padding:10px 0;border-bottom:1px solid var(--border)">
-          <div style="font-weight:600">${escHtml(r.word.word)}</div>
-          <div style="font-size:13px;color:var(--text-secondary)">${escHtml(r.word.translation)}</div>
+          <div style="font-weight:600">${escHtml(r.card.item.word)}</div>
+          <div style="font-size:13px;color:var(--text-secondary)">${escHtml(r.card.item.translation)}</div>
         </div>`
         )
         .join('')
     : '';
+
+  const backHash = source === 'phrase' ? '#phrases' : '#vocabulary';
+  const backLabel = source === 'phrase' ? '回片語庫' : '回單字庫';
 
   container.innerHTML = `
     <div class="page">
@@ -257,7 +303,7 @@ function renderResult(container: HTMLElement): void {
         ${
           unfamiliarItems.length
             ? `<div class="card">
-                <h3 style="font-size:15px;font-weight:700;margin-bottom:8px">🔴 標記為不熟的單字（${unfamiliarItems.length} 個）</h3>
+                <h3 style="font-size:15px;font-weight:700;margin-bottom:8px">🔴 標記為不熟的（${unfamiliarItems.length} 個）</h3>
                 ${reviewHtml}
                </div>`
             : ''
@@ -265,7 +311,7 @@ function renderResult(container: HTMLElement): void {
 
         <div style="display:flex;gap:10px;margin-top:20px">
           <button id="retry-btn" class="btn btn-primary btn-full">再測一次</button>
-          <button id="vocab-btn" class="btn btn-secondary btn-full" onclick="location.hash='#vocabulary'">回單字庫</button>
+          <button id="vocab-btn" class="btn btn-secondary btn-full" onclick="location.hash='${backHash}'">${backLabel}</button>
         </div>
       </div>
     </div>

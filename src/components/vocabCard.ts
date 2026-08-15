@@ -1,8 +1,12 @@
 import type { VocabularyItem, MasteryLevel } from '../types/index';
-import { updateVocabItem, deleteVocabItem } from '../services/storage';
 import { speak } from '../services/speech';
 import { renderTagEditor } from './tagEditor';
 import { showToast } from './toast';
+
+export interface VocabCardStore {
+  update: (id: string, patch: Partial<VocabularyItem>) => void;
+  delete: (id: string) => void;
+}
 
 const MASTERY_CONFIG: Record<
   MasteryLevel,
@@ -17,7 +21,8 @@ const MASTERY_ORDER: MasteryLevel[] = ['unfamiliar', 'okay', 'familiar'];
 
 export function renderVocabCard(
   item: VocabularyItem,
-  onDelete: (id: string) => void
+  onDelete: (id: string) => void,
+  store: VocabCardStore
 ): HTMLElement {
   const card = document.createElement('div');
   card.className = `vocab-card${item.isPinned ? ' pinned' : ''}`;
@@ -57,7 +62,7 @@ export function renderVocabCard(
     pinBtn.textContent = current.isPinned ? '📌' : '📍';
     pinBtn.addEventListener('click', () => {
       const next = { ...current, isPinned: !current.isPinned };
-      updateVocabItem(current.id, { isPinned: next.isPinned });
+      store.update(current.id, { isPinned: next.isPinned });
       rebuild(next);
     });
     actions.appendChild(pinBtn);
@@ -69,7 +74,7 @@ export function renderVocabCard(
     delBtn.textContent = '🗑️';
     delBtn.addEventListener('click', () => {
       if (confirm(`確定刪除「${current.word}」？`)) {
-        deleteVocabItem(current.id);
+        store.delete(current.id);
         card.remove();
         onDelete(current.id);
         showToast(`已刪除「${current.word}」`, 'info');
@@ -129,7 +134,7 @@ export function renderVocabCard(
       btn.textContent = `${icon} ${label}`;
       btn.title = `標記為「${label}」`;
       btn.addEventListener('click', () => {
-        updateVocabItem(current.id, { masteryLevel: level });
+        store.update(current.id, { masteryLevel: level });
         rebuild({ ...current, masteryLevel: level });
       });
       masteryGroup.appendChild(btn);
@@ -147,9 +152,14 @@ export function renderVocabCard(
     // ── Tags ──
     const tagSection = document.createElement('div');
     tagSection.style.marginTop = '10px';
-    const tagEditor = renderTagEditor(current.tags, current.id, (newTags) => {
-      current = { ...current, tags: newTags };
-    });
+    const tagEditor = renderTagEditor(
+      current.tags,
+      current.id,
+      (newTags) => {
+        current = { ...current, tags: newTags };
+      },
+      store.update
+    );
     tagSection.appendChild(tagEditor);
     card.appendChild(tagSection);
   };

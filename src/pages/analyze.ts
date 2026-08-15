@@ -1,8 +1,9 @@
 import type { GeminiLookupResult, VocabularyItem, MasteryLevel } from '../types/index';
 import { analyzeArticle, ThrottleError } from '../services/ai';
-import { loadSettings, addVocabItem, wordExists } from '../services/storage';
+import { loadSettings, addVocabOrPhraseItem, vocabOrPhraseExists } from '../services/storage';
 import { speak } from '../services/speech';
 import { showToast } from '../components/toast';
+import { isPhraseLike } from '../utils/pos';
 
 const MAX_CHARS = 5000;
 
@@ -113,8 +114,8 @@ async function performAnalysis(article: string, container: HTMLElement): Promise
 
     items = results.map((r) => ({
       result: r,
-      checked: !wordExists(r.word),
-      alreadySaved: wordExists(r.word),
+      checked: !vocabOrPhraseExists(r.word, r.partOfSpeech),
+      alreadySaved: vocabOrPhraseExists(r.word, r.partOfSpeech),
     }));
 
     renderResults(output);
@@ -296,6 +297,9 @@ function saveSelected(output: HTMLElement): void {
   const toSave = items.filter((i) => i.checked && !i.alreadySaved);
   if (!toSave.length) return;
 
+  let wordCount = 0;
+  let phraseCount = 0;
+
   toSave.forEach(({ result }) => {
     const item: VocabularyItem = {
       id: crypto.randomUUID(),
@@ -310,10 +314,15 @@ function saveSelected(output: HTMLElement): void {
       createdAt: Date.now(),
       masteryLevel: selectedMastery,
     };
-    addVocabItem(item);
+    addVocabOrPhraseItem(item);
+    if (isPhraseLike(result.partOfSpeech)) phraseCount++; else wordCount++;
   });
 
-  showToast(`已存入 ${toSave.length} 個單字 ✅`, 'success');
+  const parts = [
+    wordCount ? `${wordCount} 個單字` : '',
+    phraseCount ? `${phraseCount} 個片語` : '',
+  ].filter(Boolean);
+  showToast(`已存入${parts.join('、')} ✅`, 'success');
 
   // Mark as saved in items array
   toSave.forEach(({ result }) => {

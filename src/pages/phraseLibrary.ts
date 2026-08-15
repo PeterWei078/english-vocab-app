@@ -1,14 +1,14 @@
 import type { VocabularyItem, SortMode, MasteryLevel } from '../types/index';
-import { loadVocab, updateVocabItem, deleteVocabItem } from '../services/storage';
+import { loadPhrases, updatePhraseItem, deletePhraseItem } from '../services/storage';
 import { renderVocabCard } from '../components/vocabCard';
 
-const VOCAB_STORE = { update: updateVocabItem, delete: deleteVocabItem };
+const PHRASE_STORE = { update: updatePhraseItem, delete: deletePhraseItem };
 
 let currentSort: SortMode = 'newest';
 let currentSearch = '';
 let activeTag: string | null = null;
 
-export function renderVocabularyPage(container: HTMLElement): void {
+export function renderPhraseLibraryPage(container: HTMLElement): void {
   // Reset state on page load
   currentSearch = '';
   activeTag = null;
@@ -16,7 +16,7 @@ export function renderVocabularyPage(container: HTMLElement): void {
   container.innerHTML = `
     <div class="page">
       <div class="page-header">
-        <h1 class="page-title">單字庫</h1>
+        <h1 class="page-title">片語庫</h1>
       </div>
 
       <div id="stats-bar" class="stats-bar"></div>
@@ -30,7 +30,7 @@ export function renderVocabularyPage(container: HTMLElement): void {
               id="search-input"
               class="input"
               type="text"
-              placeholder="搜尋單字、翻譯、標籤…"
+              placeholder="搜尋片語、翻譯、標籤…"
               autocomplete="off"
             />
           </div>
@@ -49,11 +49,11 @@ export function renderVocabularyPage(container: HTMLElement): void {
     </div>
   `;
 
-  bindVocabEvents(container);
+  bindPhraseEvents(container);
   renderAll(container);
 }
 
-function bindVocabEvents(container: HTMLElement): void {
+function bindPhraseEvents(container: HTMLElement): void {
   const searchInput = container.querySelector<HTMLInputElement>('#search-input')!;
   const sortSelect = container.querySelector<HTMLSelectElement>('#sort-select')!;
 
@@ -71,7 +71,7 @@ function bindVocabEvents(container: HTMLElement): void {
 }
 
 function renderAll(container: HTMLElement): void {
-  const all = loadVocab();
+  const all = loadPhrases();
   renderStats(container, all);
   renderTagIndex(container, all);
 
@@ -90,7 +90,7 @@ function renderStats(container: HTMLElement, all: VocabularyItem[]): void {
 
   const bar = container.querySelector<HTMLElement>('#stats-bar')!;
   bar.innerHTML = `
-    <span class="stat-chip total">📚 ${all.length} 個單字</span>
+    <span class="stat-chip total">🧩 ${all.length} 個片語</span>
     <span class="stat-chip unfamiliar">🔴 不熟 ${counts.unfamiliar}</span>
     <span class="stat-chip okay">🟡 尚可 ${counts.okay}</span>
     <span class="stat-chip familiar">🟢 熟悉 ${counts.familiar}</span>
@@ -180,13 +180,13 @@ function renderCards(container: HTMLElement, items: VocabularyItem[]): void {
         <div class="empty-state-icon">📭</div>
         <p class="empty-state-text">${
           currentSearch || activeTag
-            ? '沒有符合條件的單字'
-            : '單字庫還是空的'
+            ? '沒有符合條件的片語'
+            : '片語庫還是空的'
         }</p>
         <p class="empty-state-hint">${
           currentSearch || activeTag
             ? '試試其他關鍵字或清除篩選條件'
-            : '前往「查詢」頁面搜尋並儲存單字'
+            : '前往「查詢」頁面搜尋並收藏片語'
         }</p>
       </div>
     `;
@@ -199,7 +199,7 @@ function renderCards(container: HTMLElement, items: VocabularyItem[]): void {
       () => {
         renderAll(container);
       },
-      VOCAB_STORE
+      PHRASE_STORE
     );
     grid.appendChild(card);
   });

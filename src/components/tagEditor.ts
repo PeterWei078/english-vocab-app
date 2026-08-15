@@ -1,9 +1,8 @@
-import { updateVocabItem } from '../services/storage';
-
 export function renderTagEditor(
   tags: string[],
   vocabId: string,
-  onUpdate: (tags: string[]) => void
+  onUpdate: (tags: string[]) => void,
+  updateFn: (id: string, patch: { tags: string[] }) => void
 ): HTMLElement {
   const container = document.createElement('div');
   container.className = 'tag-editor';
@@ -17,7 +16,7 @@ export function renderTagEditor(
       chip.innerHTML = `${tag} <span class="tag-remove" title="移除標籤">×</span>`;
       chip.querySelector('.tag-remove')!.addEventListener('click', () => {
         const next = current.filter((t) => t !== tag);
-        updateVocabItem(vocabId, { tags: next });
+        updateFn(vocabId, { tags: next });
         onUpdate(next);
         render(next);
       });
@@ -34,7 +33,7 @@ export function renderTagEditor(
       const val = input.value.trim().toLowerCase().replace(/\s+/g, '-');
       if (val && !current.includes(val)) {
         const next = [...current, val];
-        updateVocabItem(vocabId, { tags: next });
+        updateFn(vocabId, { tags: next });
         onUpdate(next);
         render(next);
       } else {
