@@ -72,7 +72,11 @@ function navigate(hash: string, initialWord?: string): void {
 function updateNavTabs(active: PageId): void {
   document.querySelectorAll('.nav-tab').forEach((tab) => {
     const page = (tab as HTMLElement).dataset.page;
-    tab.classList.toggle('active', page === active);
+    const isActive = page === active;
+    tab.classList.toggle('active', isActive);
+    if (isActive) {
+      tab.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    }
   });
 }
 
