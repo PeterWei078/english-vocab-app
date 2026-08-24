@@ -5,7 +5,7 @@ import { speak } from '../services/speech';
 import { showToast } from '../components/toast';
 import { isPhraseLike } from '../utils/pos';
 
-const MAX_CHARS = 5000;
+const MAX_CHARS = 1000;
 
 interface ResultItem {
   result: GeminiLookupResult;
@@ -23,26 +23,26 @@ export function renderAnalyzePage(container: HTMLElement): void {
   container.innerHTML = `
     <div class="page">
       <div class="page-header">
-        <h1 class="page-title">文章分析</h1>
-        <p class="page-subtitle">貼上英文文章，AI 自動找出 B2～C1 程度單字與片語</p>
+        <h1 class="page-title">批量查詢</h1>
+        <p class="page-subtitle">貼上英文文字，AI 自動找出 B2～C1 程度單字與片語</p>
       </div>
 
       <div class="card" style="margin-bottom:20px">
         <div class="form-group">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-            <label class="label" style="margin:0">貼上英文文章</label>
+            <label class="label" style="margin:0">貼上英文文字</label>
             <span id="char-count" style="font-size:12px;color:var(--text-muted)">0 / ${MAX_CHARS}</span>
           </div>
           <textarea
             id="article-input"
             class="input"
             style="min-height:200px;resize:vertical;line-height:1.6;font-size:14px"
-            placeholder="在此貼上英文文章…"
+            placeholder="在此貼上英文文字…"
             maxlength="${MAX_CHARS}"
           ></textarea>
         </div>
         <button id="analyze-btn" class="btn btn-primary btn-lg btn-full">
-          🔍 分析文章（找出 B2～C1 單字）
+          🔍 批量查詢（找出 B2～C1 單字）
         </button>
       </div>
 
@@ -67,11 +67,7 @@ function bindAnalyzeEvents(container: HTMLElement): void {
   btn.addEventListener('click', () => {
     const text = textarea.value.trim();
     if (!text) {
-      showToast('請先貼上英文文章', 'warning');
-      return;
-    }
-    if (text.length < 100) {
-      showToast('文章太短，建議至少 100 個字元', 'warning');
+      showToast('請先貼上英文文字', 'warning');
       return;
     }
     performAnalysis(text, container);
@@ -90,11 +86,11 @@ async function performAnalysis(article: string, container: HTMLElement): Promise
   const output = container.querySelector<HTMLElement>('#analyze-output')!;
 
   btn.disabled = true;
-  btn.textContent = '分析中…';
+  btn.textContent = '查詢中…';
   output.innerHTML = `
     <div class="loading-overlay">
       <div class="spinner"></div>
-      <span>AI 正在分析文章，找出 B2～C1 單字…</span>
+      <span>AI 正在批量查詢，找出 B2～C1 單字…</span>
     </div>
   `;
 
@@ -106,7 +102,7 @@ async function performAnalysis(article: string, container: HTMLElement): Promise
         <div class="empty-state">
           <div class="empty-state-icon">🤔</div>
           <p class="empty-state-text">找不到符合條件的單字</p>
-          <p class="empty-state-hint">請嘗試貼上更長或更進階的英文文章</p>
+          <p class="empty-state-hint">請嘗試貼上更長或更進階的英文內容</p>
         </div>
       `;
       return;
@@ -128,14 +124,14 @@ async function performAnalysis(article: string, container: HTMLElement): Promise
         : '未知錯誤';
     output.innerHTML = `
       <div class="card" style="color:var(--danger)">
-        <strong>分析失敗</strong><br>
+        <strong>查詢失敗</strong><br>
         <span style="font-size:13px">${escHtml(msg)}</span>
       </div>
     `;
-    showToast(`分析失敗：${msg}`, 'error');
+    showToast(`查詢失敗：${msg}`, 'error');
   } finally {
     btn.disabled = false;
-    btn.textContent = '🔍 重新分析';
+    btn.textContent = '🔍 重新查詢';
   }
 }
 

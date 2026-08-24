@@ -81,7 +81,10 @@ export async function analyzeArticle(
 - 優先選擇：動詞片語、學術詞彙、搭配詞、慣用語、進階形容詞／副詞
 - 同一個詞出現多次只列一次
 - 排除專有名詞（人名、地名、品牌等）
-- 例句請直接從文章中引用或略微改寫，保留原文語境
+- exampleSentence 必須是一個完整、文法正確的英文句子（至少包含主詞與動詞），且句子中要包含該單字或片語本身；絕對不可只重複該單字或片語本身當例句
+- 若文章中該詞所在的句子太短、太片段或不適合單獨引用，請改寫或另外造一個能清楚示範用法的完整句子，不要直接照抄詞語本身
+- exampleTranslation 必須是 exampleSentence 整句的繁體中文翻譯，不可只翻譯單字本身
+- 即使一次要產出多筆，每一筆的完整度（例句、翻譯、relatedInfo）都必須跟只查詢單一個詞時一樣詳細，不可因為數量多而簡化或偷懶
 
 文章：
 """
@@ -94,14 +97,14 @@ ${article}
     "word": "單字或片語",
     "translation": "繁體中文翻譯（簡潔）",
     "partOfSpeech": "noun|verb|adjective|adverb|phrase|idiom|other",
-    "exampleSentence": "從文章引用或改寫的英文例句",
-    "exampleTranslation": "例句繁體中文翻譯",
+    "exampleSentence": "包含該詞的完整英文例句（可從文章改寫，但必須是完整句子）",
+    "exampleTranslation": "exampleSentence 整句的繁體中文翻譯",
     "relatedInfo": [
       { "label": "類型說明", "content": "內容" }
     ]
   }
 ]
-relatedInfo 每筆最多 2 項，選最實用的（搭配詞、詞形變化、近義詞等）。`;
+relatedInfo 每筆最多 3 項，選最實用的（搭配詞、詞形變化、近義詞、片語動詞、固定表達等）。`;
 
   const text = await callGemini(apiKey, prompt);
   const clean = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
