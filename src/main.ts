@@ -1,4 +1,4 @@
-import { loadSettings, saveSettings, migratePhraseItemsIfNeeded } from './services/storage';
+import { loadSettings, saveSettings, migratePhraseItemsIfNeeded, migratePhrasalVerbsIfNeeded } from './services/storage';
 import { renderLookupPage } from './pages/lookup';
 import { renderAnalyzePage } from './pages/analyze';
 import { renderVocabularyPage } from './pages/vocabulary';
@@ -98,6 +98,7 @@ function init(): void {
   initTheme();
   initThemeToggle();
   migratePhraseItemsIfNeeded();
+  migratePhrasalVerbsIfNeeded();
 
   // Handle ?q= from bookmarklet
   const params = new URLSearchParams(location.search);
