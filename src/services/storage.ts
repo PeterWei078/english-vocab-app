@@ -14,6 +14,7 @@ const KEYS = {
 
 const PHRASE_MIGRATION_FLAG = 'phrase_migration_v1_done';
 const PHRASE_MIGRATION_FLAG_V2 = 'phrase_migration_v2_done';
+const PHRASE_MIGRATION_FLAG_V3 = 'phrase_migration_v3_done';
 
 const MAX_HISTORY = 20;
 
@@ -169,6 +170,22 @@ export function migratePhrasalVerbsIfNeeded(): void {
   localStorage.setItem(PHRASE_MIGRATION_FLAG_V2, '1');
 }
 
+// ── One-time migration: move existing "noun phrase" items that
+// were saved into vocab_list before it counted as phrase-like.
+export function migrateNounPhrasesIfNeeded(): void {
+  if (localStorage.getItem(PHRASE_MIGRATION_FLAG_V3)) return;
+
+  const vocab = loadVocab();
+  const toMove = vocab.filter((v) => isPhraseLike(v.partOfSpeech));
+
+  if (toMove.length) {
+    saveVocab(vocab.filter((v) => !isPhraseLike(v.partOfSpeech)));
+    savePhrases([...toMove, ...loadPhrases()]);
+  }
+
+  localStorage.setItem(PHRASE_MIGRATION_FLAG_V3, '1');
+}
+
 export function clearAllTags(): void {
   saveVocab(loadVocab().map((v) => ({ ...v, tags: [] })));
   savePhrases(loadPhrases().map((v) => ({ ...v, tags: [] })));
@@ -287,6 +304,7 @@ export function clearAllData(): void {
   Object.values(KEYS).forEach((k) => localStorage.removeItem(k));
   localStorage.removeItem(PHRASE_MIGRATION_FLAG);
   localStorage.removeItem(PHRASE_MIGRATION_FLAG_V2);
+  localStorage.removeItem(PHRASE_MIGRATION_FLAG_V3);
 }
 
 // ── Storage Usage ─────────────────────────────────────────

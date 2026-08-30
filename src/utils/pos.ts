@@ -1,4 +1,4 @@
-const PHRASE_LIKE_POS = new Set(['phrase', 'idiom', 'phrasal verb', 'phrasal-verb']);
+const PHRASE_LIKE_POS = new Set(['phrase', 'idiom', 'phrasal verb', 'phrasal-verb', 'noun phrase']);
 
 export function isPhraseLike(partOfSpeech: string): boolean {
   return PHRASE_LIKE_POS.has(partOfSpeech.trim().toLowerCase());

@@ -55,7 +55,7 @@ export async function lookupWord(
 {
   "word": "原始字或片語（保持原輸入形式）",
   "translation": "繁體中文翻譯（簡潔）",
-  "partOfSpeech": "詞性（noun / verb / adjective / adverb / phrase / idiom / phrasal verb / other 其中一個）",
+  "partOfSpeech": "詞性（noun / verb / adjective / adverb / phrase / idiom / phrasal verb / noun phrase / other 其中一個）",
   "exampleSentence": "一個自然的英文例句",
   "exampleTranslation": "例句的繁體中文翻譯",
   "relatedInfo": [
@@ -96,7 +96,7 @@ ${article}
   {
     "word": "單字或片語",
     "translation": "繁體中文翻譯（簡潔）",
-    "partOfSpeech": "noun|verb|adjective|adverb|phrase|idiom|phrasal verb|other",
+    "partOfSpeech": "noun|verb|adjective|adverb|phrase|idiom|phrasal verb|noun phrase|other",
     "exampleSentence": "包含該詞的完整英文例句（可從文章改寫，但必須是完整句子）",
     "exampleTranslation": "exampleSentence 整句的繁體中文翻譯",
     "relatedInfo": [
