@@ -38,6 +38,9 @@ interface QuizState {
 
 let state: QuizState | null = null;
 let currentSource: QuizSource = 'all';
+let currentLimit: number | 'all' = 'all';
+
+const LIMIT_OPTIONS: Array<number | 'all'> = [10, 20, 30, 50, 'all'];
 
 export function renderQuizPage(container: HTMLElement): void {
   state = null;
@@ -90,6 +93,11 @@ function renderSetup(container: HTMLElement): void {
                   </select>
                 </div>
 
+                <div class="form-group">
+                  <label class="label">測驗題數</label>
+                  <select id="limit-select" class="select"></select>
+                </div>
+
                 <div class="form-group" style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
                   <input type="checkbox" id="shuffle-check" checked style="width:16px;height:16px" />
                   <label for="shuffle-check" style="font-size:13px;color:var(--text-secondary)">隨機排序</label>
@@ -113,14 +121,41 @@ function renderSetup(container: HTMLElement): void {
     });
   }
 
+  const scopeSelect = container.querySelector<HTMLSelectElement>('#scope-select');
+  const limitSelect = container.querySelector<HTMLSelectElement>('#limit-select');
+
+  const scopeCount = (scope: QuizScope): number =>
+    scope === 'unfamiliar' ? unfamiliar.length : scope === 'okay' ? okay.length : cards.length;
+
+  const populateLimitSelect = (): void => {
+    if (!limitSelect || !scopeSelect) return;
+    const total = scopeCount(scopeSelect.value as QuizScope);
+    limitSelect.innerHTML = LIMIT_OPTIONS.map((opt) =>
+      opt === 'all'
+        ? `<option value="all">全部（${total} 個）</option>`
+        : `<option value="${opt}" ${opt >= total ? 'disabled' : ''}>${opt} 題</option>`
+    ).join('');
+    const wanted = currentLimit === 'all' || currentLimit >= total ? 'all' : String(currentLimit);
+    limitSelect.value = wanted;
+    if (limitSelect.value !== wanted) limitSelect.value = 'all';
+  };
+
+  populateLimitSelect();
+
+  scopeSelect?.addEventListener('change', populateLimitSelect);
+  limitSelect?.addEventListener('change', () => {
+    currentLimit = limitSelect.value === 'all' ? 'all' : Number(limitSelect.value);
+  });
+
   container.querySelector('#start-quiz-btn')?.addEventListener('click', () => {
-    const scope = (container.querySelector<HTMLSelectElement>('#scope-select')?.value ?? 'all') as QuizScope;
+    const scope = (scopeSelect?.value ?? 'all') as QuizScope;
     const shuffle = container.querySelector<HTMLInputElement>('#shuffle-check')?.checked ?? true;
-    startQuiz(scope, shuffle, container);
+    const limit = limitSelect?.value === 'all' ? 'all' : Number(limitSelect?.value ?? 'all');
+    startQuiz(scope, shuffle, limit, container);
   });
 }
 
-function startQuiz(scope: QuizScope, shuffle: boolean, container: HTMLElement): void {
+function startQuiz(scope: QuizScope, shuffle: boolean, limit: number | 'all', container: HTMLElement): void {
   const all = loadBySource(currentSource);
   let cards =
     scope === 'unfamiliar'
@@ -140,6 +175,10 @@ function startQuiz(scope: QuizScope, shuffle: boolean, container: HTMLElement): 
       const j = Math.floor(Math.random() * (i + 1));
       [cards[i], cards[j]] = [cards[j], cards[i]];
     }
+  }
+
+  if (limit !== 'all' && limit < cards.length) {
+    cards = cards.slice(0, limit);
   }
 
   state = { source: currentSource, cards, currentIndex: 0, revealed: false, results: [] };
